@@ -1,4 +1,4 @@
-# 💵 Chia Tiền Nhanh
+# 💵 Share Bill Online
 
 Công cụ chia tiền nhóm — tạo 1 lần, **gửi link cho cả nhóm**, mọi người cùng xem kết quả real-time. Không cần cài app, không cần đăng ký tài khoản.
 
@@ -6,7 +6,7 @@ Công cụ chia tiền nhóm — tạo 1 lần, **gửi link cho cả nhóm**, m
 
 ## Khác gì so với các app chia tiền khác?
 
-Hầu hết app chia tiền phổ biến hiện nay chỉ chạy **offline trên máy của người tạo** — muốn cho người khác xem kết quả phải chụp màn hình hoặc gõ lại tay. Chia Tiền Nhanh làm khác:
+Hầu hết app chia tiền phổ biến hiện nay chỉ chạy **offline trên máy của người tạo** — muốn cho người khác xem kết quả phải chụp màn hình hoặc gõ lại tay. Share Bill Online làm khác:
 
 - **Chia sẻ bằng link, không phải ảnh chụp màn hình.** Người tạo bấm 1 nút, gửi link vào nhóm chat — ai cũng mở xem được ngay, số liệu luôn khớp với bản gốc.
 - **Real-time.** Người tạo thêm/sửa khoản chi, mọi người đang mở link đều thấy cập nhật ngay lập tức, không cần refresh hay gửi lại ảnh mới.
