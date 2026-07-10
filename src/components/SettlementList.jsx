@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { buildVietQrUrl } from "../utils/vietqr";
 import { VIETNAMESE_BANKS } from "../utils/vietnameseBanks";
+import { withErrorAlert } from "../utils/withErrorAlert";
 
 function nameOf(members, id) {
   return members.find((m) => m.id === id)?.name ?? "?";
@@ -48,7 +49,7 @@ export default function SettlementList({ groupName, members, settlements, isEdit
                   </span>
                   {isEditor && (
                     <button
-                      onClick={() => onTogglePaid(s.id)}
+                      onClick={() => withErrorAlert(() => onTogglePaid(s.id), "Không thể cập nhật trạng thái.")}
                       className={`text-xs font-medium rounded-lg px-2.5 py-1 border ${
                         s.paid
                           ? "bg-emerald-50 border-emerald-200 text-emerald-700"
@@ -87,7 +88,7 @@ export default function SettlementList({ groupName, members, settlements, isEdit
                   <img src={qrUrl} alt={`QR chuyển khoản cho ${toMember?.name}`} className="w-48 rounded-lg border border-gray-200" />
                   {isWallet && (
                     <p className="text-xs text-amber-600 text-center max-w-xs">
-                      Đây là QR chuyển khoản liên ngân hàng tới ví {toMember?.bank?.bankCode === "momo" ? "MoMo" : "điện tử"} — quét bằng <b>app ngân hàng</b>, không dùng app ví để quét.
+                      Đây là QR chuyển khoản liên ngân hàng tới ví điện tử — quét bằng <b>app ngân hàng</b>, không dùng app ví để quét.
                     </p>
                   )}
                 </div>

@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import {
   doc,
   onSnapshot,
-  updateDoc,
+  runTransaction,
+  Timestamp,
 } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "../firebase";
@@ -12,6 +13,12 @@ import {
   simplifyDebts,
   mergeSettlementPaidState,
 } from "../utils/splitCalculator";
+
+const TTL_DAYS = 3;
+
+function nextExpiresAt() {
+  return Timestamp.fromMillis(Date.now() + TTL_DAYS * 24 * 60 * 60 * 1000);
+}
 
 // Tính lại settlements từ members + expenses hiện tại, giữ trạng thái "đã trả" cũ nếu còn khớp.
 function recomputeSettlements(members, expenses, oldSettlements) {
@@ -47,99 +54,107 @@ export function useGroup(groupId) {
     return () => unsubscribe();
   }, [groupId]);
 
-  const groupRef = groupId ? doc(db, "groups", groupId) : null;
+  // Đọc dữ liệu mới nhất trong transaction (không dùng state `group` cũ trong closure) để tránh
+  // 2 người sửa gần như đồng thời ghi đè mất thay đổi của nhau.
+  const mutate = useCallback(
+    async (updater) => {
+      const groupRef = doc(db, "groups", groupId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(groupRef);
+        if (!snap.exists()) throw new Error("Nhóm không còn tồn tại.");
+        const current = snap.data();
+        const changes = updater(current);
+        tx.update(groupRef, { ...changes, expiresAt: nextExpiresAt() });
+      });
+    },
+    [groupId]
+  );
 
   const updateGroupName = useCallback(
-    async (name) => {
-      await updateDoc(groupRef, { name });
-    },
-    [groupRef]
+    (name) => mutate(() => ({ name })),
+    [mutate]
   );
 
   const addMember = useCallback(
-    async (name) => {
-      const newMember = { id: uuidv4(), name, bank: null };
-      const members = [...(group?.members ?? []), newMember];
-      await updateDoc(groupRef, { members });
-    },
-    [group, groupRef]
+    (name) =>
+      mutate((current) => ({
+        members: [...(current.members ?? []), { id: uuidv4(), name, bank: null }],
+      })),
+    [mutate]
   );
 
   const removeMember = useCallback(
-    async (memberId) => {
-      const members = (group?.members ?? []).filter((m) => m.id !== memberId);
-      // Xóa luôn khoản chi liên quan tới member này khỏi paidBy/splitAmong để tránh dữ liệu mồ côi.
-      const expenses = (group?.expenses ?? []).map((e) => ({
-        ...e,
-        paidBy: e.paidBy.filter((p) => p.memberId !== memberId),
-        splitAmong: e.splitAmong.filter((s) => s.memberId !== memberId),
-      }));
-      const settlements = recomputeSettlements(members, expenses, group?.settlements);
-      await updateDoc(groupRef, { members, expenses, settlements });
-    },
-    [group, groupRef]
+    (memberId) =>
+      mutate((current) => {
+        const members = (current.members ?? []).filter((m) => m.id !== memberId);
+        // Xóa luôn khoản chi liên quan tới member này khỏi paidBy/splitAmong để tránh dữ liệu mồ côi.
+        const expenses = (current.expenses ?? []).map((e) => ({
+          ...e,
+          paidBy: e.paidBy.filter((p) => p.memberId !== memberId),
+          splitAmong: e.splitAmong.filter((s) => s.memberId !== memberId),
+        }));
+        const settlements = recomputeSettlements(members, expenses, current.settlements);
+        return { members, expenses, settlements };
+      }),
+    [mutate]
   );
 
   const updateMemberBank = useCallback(
-    async (memberId, bank) => {
-      const members = (group?.members ?? []).map((m) =>
-        m.id === memberId ? { ...m, bank } : m
-      );
-      await updateDoc(groupRef, { members });
-    },
-    [group, groupRef]
+    (memberId, bank) =>
+      mutate((current) => ({
+        members: (current.members ?? []).map((m) => (m.id === memberId ? { ...m, bank } : m)),
+      })),
+    [mutate]
   );
 
-  const uploadBillImage = useCallback(
-    async (file) => {
-      return uploadToCloudinary(file);
-    },
-    []
-  );
+  const uploadBillImage = useCallback((file) => uploadToCloudinary(file), []);
 
   const addExpense = useCallback(
-    async (expenseInput) => {
-      const newExpense = {
-        id: uuidv4(),
-        createdAt: Date.now(),
-        billImageUrl: null,
-        ...expenseInput,
-      };
-      const expenses = [...(group?.expenses ?? []), newExpense];
-      const settlements = recomputeSettlements(group?.members ?? [], expenses, group?.settlements);
-      await updateDoc(groupRef, { expenses, settlements });
-    },
-    [group, groupRef]
+    (expenseInput) =>
+      mutate((current) => {
+        const newExpense = {
+          id: uuidv4(),
+          createdAt: Date.now(),
+          billImageUrl: null,
+          ...expenseInput,
+        };
+        const expenses = [...(current.expenses ?? []), newExpense];
+        const settlements = recomputeSettlements(current.members ?? [], expenses, current.settlements);
+        return { expenses, settlements };
+      }),
+    [mutate]
   );
 
   const updateExpense = useCallback(
-    async (expenseId, changes) => {
-      const expenses = (group?.expenses ?? []).map((e) =>
-        e.id === expenseId ? { ...e, ...changes } : e
-      );
-      const settlements = recomputeSettlements(group?.members ?? [], expenses, group?.settlements);
-      await updateDoc(groupRef, { expenses, settlements });
-    },
-    [group, groupRef]
+    (expenseId, changes) =>
+      mutate((current) => {
+        const expenses = (current.expenses ?? []).map((e) =>
+          e.id === expenseId ? { ...e, ...changes } : e
+        );
+        const settlements = recomputeSettlements(current.members ?? [], expenses, current.settlements);
+        return { expenses, settlements };
+      }),
+    [mutate]
   );
 
   const deleteExpense = useCallback(
-    async (expenseId) => {
-      const expenses = (group?.expenses ?? []).filter((e) => e.id !== expenseId);
-      const settlements = recomputeSettlements(group?.members ?? [], expenses, group?.settlements);
-      await updateDoc(groupRef, { expenses, settlements });
-    },
-    [group, groupRef]
+    (expenseId) =>
+      mutate((current) => {
+        const expenses = (current.expenses ?? []).filter((e) => e.id !== expenseId);
+        const settlements = recomputeSettlements(current.members ?? [], expenses, current.settlements);
+        return { expenses, settlements };
+      }),
+    [mutate]
   );
 
   const toggleSettlementPaid = useCallback(
-    async (settlementId) => {
-      const settlements = (group?.settlements ?? []).map((s) =>
-        s.id === settlementId ? { ...s, paid: !s.paid } : s
-      );
-      await updateDoc(groupRef, { settlements });
-    },
-    [group, groupRef]
+    (settlementId) =>
+      mutate((current) => ({
+        settlements: (current.settlements ?? []).map((s) =>
+          s.id === settlementId ? { ...s, paid: !s.paid } : s
+        ),
+      })),
+    [mutate]
   );
 
   return {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { collection, doc, setDoc, Timestamp } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "../firebase";
 import Footer from "../components/Footer";
@@ -23,6 +23,7 @@ export default function CreateGroup() {
       name: name.trim(),
       editToken,
       createdAt: Date.now(),
+      expiresAt: Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000),
       members: [],
       expenses: [],
       settlements: [],

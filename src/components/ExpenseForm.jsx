@@ -75,23 +75,28 @@ export default function ExpenseForm({ members, onAddExpense, onUploadBillImage }
     if (form.multiPayer && payerTotal !== amountNum) return;
 
     setSubmitting(true);
-    let billImageUrl = null;
-    if (billFile) {
-      const compressed = await compressImage(billFile);
-      billImageUrl = await onUploadBillImage(compressed);
+    try {
+      let billImageUrl = null;
+      if (billFile) {
+        const compressed = await compressImage(billFile);
+        billImageUrl = await onUploadBillImage(compressed);
+      }
+
+      await onAddExpense({
+        description: form.description.trim(),
+        amount: amountNum,
+        paidBy: payerPreview,
+        splitAmong: splitPreview,
+        billImageUrl,
+      });
+
+      setForm(emptyForm());
+      setBillFile(null);
+    } catch (err) {
+      alert(`Không thể lưu khoản chi: ${err.message}`);
+    } finally {
+      setSubmitting(false);
     }
-
-    await onAddExpense({
-      description: form.description.trim(),
-      amount: amountNum,
-      paidBy: payerPreview,
-      splitAmong: splitPreview,
-      billImageUrl,
-    });
-
-    setForm(emptyForm());
-    setBillFile(null);
-    setSubmitting(false);
   };
 
   return (

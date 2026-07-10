@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { VIETNAMESE_BANKS } from "../utils/vietnameseBanks";
+import { withErrorAlert } from "../utils/withErrorAlert";
 
 export default function MemberList({ members, isEditor, payerMemberIds, onAddMember, onRemoveMember, onUpdateBank }) {
   const [name, setName] = useState("");
@@ -9,7 +10,7 @@ export default function MemberList({ members, isEditor, payerMemberIds, onAddMem
   const handleAdd = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onAddMember(name.trim());
+    withErrorAlert(() => onAddMember(name.trim()), "Không thể thêm thành viên.");
     setName("");
   };
 
@@ -19,7 +20,10 @@ export default function MemberList({ members, isEditor, payerMemberIds, onAddMem
   };
 
   const saveBank = (memberId) => {
-    onUpdateBank(memberId, bankForm.bankCode && bankForm.accountNumber ? bankForm : null);
+    withErrorAlert(
+      () => onUpdateBank(memberId, bankForm.bankCode && bankForm.accountNumber ? bankForm : null),
+      "Không thể lưu thông tin ngân hàng."
+    );
     setEditingBankId(null);
   };
 
@@ -73,7 +77,11 @@ export default function MemberList({ members, isEditor, payerMemberIds, onAddMem
                     </button>
                   )}
                   <button
-                    onClick={() => onRemoveMember(member.id)}
+                    onClick={() => {
+                      if (window.confirm(`Xóa "${member.name}" khỏi nhóm? Các khoản chi liên quan sẽ được cập nhật lại.`)) {
+                        withErrorAlert(() => onRemoveMember(member.id), "Không thể xóa thành viên.");
+                      }
+                    }}
                     title="Xóa"
                     className="text-gray-400 hover:text-red-500 text-lg"
                   >

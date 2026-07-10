@@ -1,5 +1,6 @@
 import { useState } from "react";
 import MoneyInput from "./MoneyInput";
+import { withErrorAlert } from "../utils/withErrorAlert";
 
 function nameOf(members, id) {
   return members.find((m) => m.id === id)?.name ?? "?";
@@ -21,7 +22,7 @@ export default function ExpenseList({ expenses, members, isEditor, onUpdateExpen
       memberId: s.memberId,
       amount: Number(splitAmounts[s.memberId]) || 0,
     }));
-    onUpdateExpense(expense.id, { splitAmong });
+    withErrorAlert(() => onUpdateExpense(expense.id, { splitAmong }), "Không thể lưu mức chia.");
     setEditingId(null);
   };
 
@@ -76,7 +77,11 @@ export default function ExpenseList({ expenses, members, isEditor, onUpdateExpen
                       ✎
                     </button>
                     <button
-                      onClick={() => onDeleteExpense(expense.id)}
+                      onClick={() => {
+                        if (window.confirm(`Xóa khoản chi "${expense.description}"?`)) {
+                          withErrorAlert(() => onDeleteExpense(expense.id), "Không thể xóa khoản chi.");
+                        }
+                      }}
                       className="text-gray-400 hover:text-red-500"
                       title="Xóa"
                     >

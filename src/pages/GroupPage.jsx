@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useGroup } from "../hooks/useGroup";
+import { withErrorAlert } from "../utils/withErrorAlert";
 import MemberList from "../components/MemberList";
 import ExpenseForm from "../components/ExpenseForm";
 import ExpenseList from "../components/ExpenseList";
@@ -29,6 +31,19 @@ export default function GroupPage() {
     deleteExpense,
     toggleSettlementPaid,
   } = useGroup(groupId);
+
+  const [nameDraft, setNameDraft] = useState(null);
+  const debounceRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
+  const handleNameChange = (value) => {
+    setNameDraft(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      withErrorAlert(() => updateGroupName(value), "Không thể lưu tên nhóm.");
+    }, 500);
+  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">Đang tải...</div>;
@@ -62,8 +77,8 @@ export default function GroupPage() {
               <p className="text-xs text-gray-500 uppercase tracking-wide">Chia tiền nhanh</p>
               {isEditor ? (
                 <input
-                  value={group.name}
-                  onChange={(e) => updateGroupName(e.target.value)}
+                  value={nameDraft ?? group.name}
+                  onChange={(e) => handleNameChange(e.target.value)}
                   className="text-xl font-semibold text-gray-900 border-none outline-none bg-transparent -ml-1 px-1 rounded focus:bg-gray-100"
                 />
               ) : (
