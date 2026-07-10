@@ -7,6 +7,7 @@ import ResultSummary from "../components/ResultSummary";
 import BalanceTable from "../components/BalanceTable";
 import SettlementList from "../components/SettlementList";
 import ShareLinkBox from "../components/ShareLinkBox";
+import Footer from "../components/Footer";
 import { calculateBalances } from "../utils/splitCalculator";
 
 export default function GroupPage() {
@@ -50,7 +51,7 @@ export default function GroupPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -103,7 +104,7 @@ export default function GroupPage() {
         </div>
       )}
 
-      <main className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <main className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 w-full">
         <div className="space-y-6">
           <MemberList
             members={group.members}
@@ -140,6 +141,7 @@ export default function GroupPage() {
           />
           <BalanceTable members={group.members} balances={balances} />
           <SettlementList
+            groupName={group.name}
             members={group.members}
             settlements={group.settlements}
             isEditor={isEditor}
@@ -147,6 +149,7 @@ export default function GroupPage() {
           />
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { VIETNAMESE_BANKS } from "../utils/vietnameseBanks";
 
 export default function MemberList({ members, isEditor, payerMemberIds, onAddMember, onRemoveMember, onUpdateBank }) {
   const [name, setName] = useState("");
@@ -56,7 +57,7 @@ export default function MemberList({ members, isEditor, payerMemberIds, onAddMem
                 <p className="text-sm font-medium text-gray-900">{member.name}</p>
                 {member.bank && (
                   <p className="text-xs text-gray-500">
-                    {member.bank.bankCode} · {member.bank.accountNumber}
+                    {VIETNAMESE_BANKS.find((b) => b.code === member.bank.bankCode)?.name ?? member.bank.bankCode} · {member.bank.accountNumber}
                   </p>
                 )}
               </div>
@@ -84,17 +85,21 @@ export default function MemberList({ members, isEditor, payerMemberIds, onAddMem
 
             {editingBankId === member.id && (
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <input
+                <select
                   value={bankForm.bankCode}
                   onChange={(e) => setBankForm({ ...bankForm, bankCode: e.target.value })}
-                  placeholder="Mã NH (VD: ACB)"
-                  className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                />
+                  className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                >
+                  <option value="">-- Chọn ngân hàng --</option>
+                  {VIETNAMESE_BANKS.map((b) => (
+                    <option key={b.code} value={b.code}>{b.name}</option>
+                  ))}
+                </select>
                 <input
                   value={bankForm.accountNumber}
                   onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
                   placeholder="Số tài khoản"
-                  className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                  className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
                 />
                 <input
                   value={bankForm.accountName}

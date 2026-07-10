@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { splitEqually } from "../utils/splitCalculator";
 import { compressImage } from "../utils/compressImage";
 import MoneyInput from "./MoneyInput";
@@ -17,7 +17,18 @@ const emptyForm = () => ({
 export default function ExpenseForm({ members, onAddExpense, onUploadBillImage }) {
   const [form, setForm] = useState(emptyForm());
   const [billFile, setBillFile] = useState(null);
+  const [billPreviewUrl, setBillPreviewUrl] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!billFile) {
+      setBillPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(billFile);
+    setBillPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [billFile]);
 
   const amountNum = Number(form.amount) || 0;
 
@@ -211,12 +222,39 @@ export default function ExpenseForm({ members, onAddExpense, onUploadBillImage }
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh bill (tùy chọn)</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setBillFile(e.target.files?.[0] ?? null)}
-            className="w-full text-sm"
-          />
+
+          {!billFile || !billPreviewUrl ? (
+            <label
+              htmlFor="bill-upload"
+              className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-300 rounded-lg py-6 cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition text-gray-500"
+            >
+              <span className="text-2xl">📷</span>
+              <span className="text-sm font-medium text-gray-600">Bấm để chọn ảnh bill</span>
+              <span className="text-xs text-gray-400">PNG, JPG...</span>
+              <input
+                id="bill-upload"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setBillFile(e.target.files?.[0] ?? null)}
+                className="hidden"
+              />
+            </label>
+          ) : (
+            <div className="flex items-center gap-3 border border-gray-200 rounded-lg p-2">
+              <img src={billPreviewUrl} alt="Xem trước ảnh bill" className="w-16 h-16 rounded-md object-cover shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-gray-700 truncate">{billFile.name}</p>
+                <p className="text-xs text-gray-400">{(billFile.size / 1024).toFixed(0)} KB</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBillFile(null)}
+                className="text-gray-400 hover:text-red-500 text-sm shrink-0 px-2"
+              >
+                Xóa
+              </button>
+            </div>
+          )}
         </div>
 
         <button
