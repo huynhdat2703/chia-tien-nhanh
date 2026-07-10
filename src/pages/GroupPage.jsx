@@ -33,6 +33,7 @@ export default function GroupPage() {
   } = useGroup(groupId);
 
   const [nameDraft, setNameDraft] = useState(null);
+  const [focusMemberId, setFocusMemberId] = useState(null);
   const debounceRef = useRef(null);
 
   useEffect(() => () => clearTimeout(debounceRef.current), []);
@@ -43,6 +44,12 @@ export default function GroupPage() {
     debounceRef.current = setTimeout(() => {
       withErrorAlert(() => updateGroupName(value), "Không thể lưu tên nhóm.");
     }, 500);
+  };
+
+  // Bọc thêm 1 counter để trigger lại được kể cả khi bấm nhắc nhở cho cùng 1 người 2 lần liên tiếp.
+  const requestFocusMember = (memberId) => {
+    if (!memberId) return;
+    setFocusMemberId({ id: memberId, key: Date.now() });
   };
 
   if (loading) {
@@ -128,6 +135,8 @@ export default function GroupPage() {
             onAddMember={addMember}
             onRemoveMember={removeMember}
             onUpdateBank={updateMemberBank}
+            focusRequest={focusMemberId}
+            onFocusHandled={() => setFocusMemberId(null)}
           />
 
           {isEditor && (
@@ -135,6 +144,7 @@ export default function GroupPage() {
               members={group.members}
               onAddExpense={addExpense}
               onUploadBillImage={uploadBillImage}
+              onExpenseAdded={requestFocusMember}
             />
           )}
 
@@ -161,6 +171,7 @@ export default function GroupPage() {
             settlements={group.settlements}
             isEditor={isEditor}
             onTogglePaid={toggleSettlementPaid}
+            onRequestBankInfo={requestFocusMember}
           />
         </div>
       </main>

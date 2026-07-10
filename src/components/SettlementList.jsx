@@ -7,7 +7,7 @@ function nameOf(members, id) {
   return members.find((m) => m.id === id)?.name ?? "?";
 }
 
-export default function SettlementList({ groupName, members, settlements, isEditor, onTogglePaid }) {
+export default function SettlementList({ groupName, members, settlements, isEditor, onTogglePaid, onRequestBankInfo }) {
   const [qrForId, setQrForId] = useState(null);
   const paidCount = settlements.filter((s) => s.paid).length;
 
@@ -62,7 +62,7 @@ export default function SettlementList({ groupName, members, settlements, isEdit
                   {!isEditor && s.paid && (
                     <span className="text-xs font-medium text-emerald-700">✓ Đã trả</span>
                   )}
-                  {qrUrl && (
+                  {qrUrl ? (
                     <button
                       onClick={() => setQrForId(qrForId === s.id ? null : s.id)}
                       title="Hiện QR chuyển khoản"
@@ -80,6 +80,16 @@ export default function SettlementList({ groupName, members, settlements, isEdit
                       </svg>
                       QR
                     </button>
+                  ) : (
+                    isEditor && (
+                      <button
+                        onClick={() => onRequestBankInfo?.(toMember?.id)}
+                        title="Thêm thông tin ngân hàng để tạo QR"
+                        className="text-xs font-medium text-amber-600 hover:text-amber-700 underline decoration-dotted"
+                      >
+                        Chưa có TK ngân hàng — thêm ngay
+                      </button>
+                    )
                   )}
                 </div>
               </div>

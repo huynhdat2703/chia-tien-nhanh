@@ -14,7 +14,7 @@ const emptyForm = () => ({
   payerAmounts: {},
 });
 
-export default function ExpenseForm({ members, onAddExpense, onUploadBillImage }) {
+export default function ExpenseForm({ members, onAddExpense, onUploadBillImage, onExpenseAdded }) {
   const [form, setForm] = useState(emptyForm());
   const [billFile, setBillFile] = useState(null);
   const [billPreviewUrl, setBillPreviewUrl] = useState(null);
@@ -89,6 +89,11 @@ export default function ExpenseForm({ members, onAddExpense, onUploadBillImage }
         splitAmong: splitPreview,
         billImageUrl,
       });
+
+      const payerWithoutBank = payerPreview
+        .map((p) => members.find((m) => m.id === p.memberId))
+        .find((m) => m && !m.bank);
+      onExpenseAdded?.(payerWithoutBank?.id ?? null);
 
       setForm(emptyForm());
       setBillFile(null);

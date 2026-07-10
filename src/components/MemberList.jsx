@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VIETNAMESE_BANKS } from "../utils/vietnameseBanks";
 import { withErrorAlert } from "../utils/withErrorAlert";
 
-export default function MemberList({ members, isEditor, payerMemberIds, onAddMember, onRemoveMember, onUpdateBank }) {
+export default function MemberList({
+  members,
+  isEditor,
+  payerMemberIds,
+  onAddMember,
+  onRemoveMember,
+  onUpdateBank,
+  focusRequest,
+  onFocusHandled,
+}) {
   const [name, setName] = useState("");
   const [editingBankId, setEditingBankId] = useState(null);
   const [bankForm, setBankForm] = useState({ bankCode: "", accountNumber: "", accountName: "" });
+  const rowRefs = useRef({});
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -26,6 +36,19 @@ export default function MemberList({ members, isEditor, payerMemberIds, onAddMem
     );
     setEditingBankId(null);
   };
+
+  // Khi được yêu cầu "focus" 1 member từ nơi khác (VD: vừa thêm khoản chi mà người trả
+  // chưa có TK ngân hàng), tự cuộn tới và mở sẵn form nhập ngân hàng cho họ.
+  useEffect(() => {
+    if (!focusRequest?.id) return;
+    const member = members.find((m) => m.id === focusRequest.id);
+    if (member) {
+      startEditBank(member);
+      rowRefs.current[focusRequest.id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    onFocusHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -54,85 +77,100 @@ export default function MemberList({ members, isEditor, payerMemberIds, onAddMem
       )}
 
       <div className="space-y-2">
-        {members.map((member) => (
-          <div key={member.id} className="rounded-lg border border-gray-200 px-3 py-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                {member.bank && (
-                  <p className="text-xs text-gray-500">
-                    {VIETNAMESE_BANKS.find((b) => b.code === member.bank.bankCode)?.name ?? member.bank.bankCode} · {member.bank.accountNumber}
-                  </p>
+        {members.map((member) => {
+          const isPayer = payerMemberIds.has(member.id);
+          const missingBank = isPayer && !member.bank;
+          return (
+            <div
+              key={member.id}
+              ref={(el) => (rowRefs.current[member.id] = el)}
+              className={`rounded-lg border px-3 py-2 transition-colors ${
+                missingBank ? "border-amber-300 bg-amber-50/50" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                  {member.bank && (
+                    <p className="text-xs text-gray-500">
+                      {VIETNAMESE_BANKS.find((b) => b.code === member.bank.bankCode)?.name ?? member.bank.bankCode} · {member.bank.accountNumber}
+                    </p>
+                  )}
+                  {missingBank && (
+                    <p className="text-xs text-amber-600 mt-0.5">
+                      ⚠ Chưa có TK ngân hàng — cần thêm để tạo QR chuyển khoản
+                    </p>
+                  )}
+                </div>
+                {isEditor && (
+                  <div className="flex items-center gap-2">
+                    {isPayer && (
+                      <button
+                        onClick={() => startEditBank(member)}
+                        title="Thông tin ngân hàng (người đã ứng tiền)"
+                        className="text-gray-400 hover:text-emerald-600 text-lg"
+                      >
+                        🏦
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Xóa "${member.name}" khỏi nhóm? Các khoản chi liên quan sẽ được cập nhật lại.`)) {
+                          withErrorAlert(() => onRemoveMember(member.id), "Không thể xóa thành viên.");
+                        }
+                      }}
+                      title="Xóa"
+                      className="text-gray-400 hover:text-red-500 text-lg"
+                    >
+                      🗑
+                    </button>
+                  </div>
                 )}
               </div>
-              {isEditor && (
-                <div className="flex items-center gap-2">
-                  {payerMemberIds.has(member.id) && (
-                    <button
-                      onClick={() => startEditBank(member)}
-                      title="Thông tin ngân hàng (người đã ứng tiền)"
-                      className="text-gray-400 hover:text-emerald-600 text-lg"
-                    >
-                      🏦
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (window.confirm(`Xóa "${member.name}" khỏi nhóm? Các khoản chi liên quan sẽ được cập nhật lại.`)) {
-                        withErrorAlert(() => onRemoveMember(member.id), "Không thể xóa thành viên.");
-                      }
-                    }}
-                    title="Xóa"
-                    className="text-gray-400 hover:text-red-500 text-lg"
+
+              {editingBankId === member.id && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <select
+                    value={bankForm.bankCode}
+                    onChange={(e) => setBankForm({ ...bankForm, bankCode: e.target.value })}
+                    className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
                   >
-                    🗑
-                  </button>
+                    <option value="">-- Chọn ngân hàng --</option>
+                    {VIETNAMESE_BANKS.map((b) => (
+                      <option key={b.code} value={b.code}>{b.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={bankForm.accountNumber}
+                    onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
+                    placeholder="Số tài khoản"
+                    className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                  />
+                  <input
+                    value={bankForm.accountName}
+                    onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })}
+                    placeholder="Tên chủ TK"
+                    className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                  />
+                  <div className="col-span-2 flex gap-2">
+                    <button
+                      onClick={() => saveBank(member.id)}
+                      className="flex-1 bg-emerald-600 text-white text-xs font-medium rounded-lg py-1.5"
+                    >
+                      Lưu
+                    </button>
+                    <button
+                      onClick={() => setEditingBankId(null)}
+                      className="flex-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg py-1.5"
+                    >
+                      Hủy
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-
-            {editingBankId === member.id && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <select
-                  value={bankForm.bankCode}
-                  onChange={(e) => setBankForm({ ...bankForm, bankCode: e.target.value })}
-                  className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                >
-                  <option value="">-- Chọn ngân hàng --</option>
-                  {VIETNAMESE_BANKS.map((b) => (
-                    <option key={b.code} value={b.code}>{b.name}</option>
-                  ))}
-                </select>
-                <input
-                  value={bankForm.accountNumber}
-                  onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
-                  placeholder="Số tài khoản"
-                  className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                />
-                <input
-                  value={bankForm.accountName}
-                  onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })}
-                  placeholder="Tên chủ TK"
-                  className="col-span-2 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                />
-                <div className="col-span-2 flex gap-2">
-                  <button
-                    onClick={() => saveBank(member.id)}
-                    className="flex-1 bg-emerald-600 text-white text-xs font-medium rounded-lg py-1.5"
-                  >
-                    Lưu
-                  </button>
-                  <button
-                    onClick={() => setEditingBankId(null)}
-                    className="flex-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg py-1.5"
-                  >
-                    Hủy
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
         {members.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-4">Chưa có thành viên nào.</p>
         )}
