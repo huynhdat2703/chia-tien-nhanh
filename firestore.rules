@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // MVP: đọc công khai theo groupId (share link), ghi mở (không auth thật).
+    // Quyền edit được kiểm soát ở phía UI qua editToken trong URL.
+    // Rủi ro: ai biết groupId đều có thể ghi trực tiếp qua Firestore console/devtools.
+    // Chấp nhận cho công cụ nội bộ team, không dùng cho dữ liệu nhạy cảm.
+    match /groups/{groupId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if false;
+    }
+  }
+}
