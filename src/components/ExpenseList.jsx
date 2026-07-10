@@ -1,6 +1,7 @@
 import { useState } from "react";
 import MoneyInput from "./MoneyInput";
 import { withErrorAlert } from "../utils/withErrorAlert";
+import { sumAmounts } from "../utils/splitCalculator";
 
 function nameOf(members, id) {
   return members.find((m) => m.id === id)?.name ?? "?";
@@ -8,21 +9,40 @@ function nameOf(members, id) {
 
 export default function ExpenseList({ expenses, members, isEditor, onUpdateExpense, onDeleteExpense }) {
   const [editingId, setEditingId] = useState(null);
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState(0);
+  const [payerId, setPayerId] = useState("");
   const [splitAmounts, setSplitAmounts] = useState({});
 
   const startEdit = (expense) => {
     setEditingId(expense.id);
+    setDescription(expense.description);
+    setAmount(expense.amount);
+    setPayerId(expense.paidBy.length === 1 ? expense.paidBy[0].memberId : "");
     setSplitAmounts(Object.fromEntries(expense.splitAmong.map((s) => [s.memberId, s.amount])));
   };
 
   const saveEdit = (expense) => {
-    const total = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
-    if (total !== expense.amount) return;
     const splitAmong = expense.splitAmong.map((s) => ({
       memberId: s.memberId,
       amount: Number(splitAmounts[s.memberId]) || 0,
     }));
-    withErrorAlert(() => onUpdateExpense(expense.id, { splitAmong }), "Không thể lưu mức chia.");
+    const total = sumAmounts(splitAmong);
+    if (total !== amount) return;
+    if (!description.trim() || amount <= 0) return;
+
+    const changes = {
+      description: description.trim(),
+      amount,
+      splitAmong,
+    };
+    // Chỉ cho sửa người trả khi khoản chi vốn chỉ có 1 người trả — nhiều người trả thì giữ nguyên,
+    // vì việc chia lại tiền giữa nhiều người trả cần luồng riêng phức tạp hơn.
+    if (expense.paidBy.length === 1 && payerId) {
+      changes.paidBy = [{ memberId: payerId, amount }];
+    }
+
+    withErrorAlert(() => onUpdateExpense(expense.id, changes), "Không thể lưu khoản chi.");
     setEditingId(null);
   };
 
@@ -37,7 +57,9 @@ export default function ExpenseList({ expenses, members, isEditor, onUpdateExpen
 
       <div className="space-y-3">
         {expenses.map((expense) => {
-          const editTotal = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
+          const editTotal = sumAmounts(
+            Object.entries(splitAmounts).map(([memberId, v]) => ({ memberId, amount: Number(v) || 0 }))
+          );
           return (
             <div key={expense.id} className="rounded-lg border border-gray-200 p-3">
               <div className="flex items-start justify-between gap-2">
@@ -72,7 +94,7 @@ export default function ExpenseList({ expenses, members, isEditor, onUpdateExpen
                     <button
                       onClick={() => (editingId === expense.id ? setEditingId(null) : startEdit(expense))}
                       className="text-gray-400 hover:text-emerald-600"
-                      title="Sửa mức chia"
+                      title="Sửa khoản chi"
                     >
                       ✎
                     </button>
@@ -92,23 +114,63 @@ export default function ExpenseList({ expenses, members, isEditor, onUpdateExpen
               </div>
 
               {editingId === expense.id && (
-                <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
-                  <p className="text-xs text-gray-500">Sửa mức chia từng người:</p>
-                  {expense.splitAmong.map((s) => (
-                    <div key={s.memberId} className="flex items-center gap-2">
-                      <span className="text-sm flex-1">{nameOf(members, s.memberId)}</span>
-                      <MoneyInput
-                        value={splitAmounts[s.memberId]}
-                        onChange={(v) =>
-                          setSplitAmounts({ ...splitAmounts, [s.memberId]: v })
-                        }
-                        className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-xs"
-                      />
+                <div className="mt-3 border-t border-gray-100 pt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Mô tả</label>
+                    <input
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Số tiền (đ)</label>
+                    <MoneyInput
+                      value={amount}
+                      onChange={setAmount}
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                    />
+                  </div>
+                  {expense.paidBy.length === 1 ? (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Người trả</label>
+                      <select
+                        value={payerId}
+                        onChange={(e) => setPayerId(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                      >
+                        {members.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
                     </div>
-                  ))}
-                  <p className={`text-xs ${editTotal === expense.amount ? "text-gray-400" : "text-red-500"}`}>
-                    Đã chia: {editTotal.toLocaleString("vi-VN")} đ / {expense.amount.toLocaleString("vi-VN")} đ
-                  </p>
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      Khoản chi có nhiều người trả — xóa và tạo lại nếu cần đổi người trả.
+                    </p>
+                  )}
+
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1.5">Mức chia từng người:</p>
+                    <div className="space-y-2">
+                      {expense.splitAmong.map((s) => (
+                        <div key={s.memberId} className="flex items-center gap-2">
+                          <span className="text-sm flex-1">{nameOf(members, s.memberId)}</span>
+                          <MoneyInput
+                            value={splitAmounts[s.memberId]}
+                            onChange={(v) =>
+                              setSplitAmounts({ ...splitAmounts, [s.memberId]: v })
+                            }
+                            className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-xs"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className={`text-xs mt-1 ${editTotal === amount ? "text-gray-400" : "text-red-500"}`}>
+                      Đã chia: {editTotal.toLocaleString("vi-VN")} đ / {amount.toLocaleString("vi-VN")} đ
+                    </p>
+                  </div>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => saveEdit(expense)}

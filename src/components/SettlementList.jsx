@@ -37,13 +37,13 @@ export default function SettlementList({ groupName, members, settlements, isEdit
 
           return (
             <div key={s.id} className="rounded-lg border border-gray-200 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm">
                   <span className="font-medium text-gray-900">{fromMember?.name}</span>
                   <span className="text-gray-400 mx-1">→</span>
                   <span className="font-medium text-gray-900">{toMember?.name}</span>
                 </p>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-emerald-700">
                     {s.amount.toLocaleString("vi-VN")} đ
                   </span>

@@ -12,9 +12,10 @@ import {
   calculateBalances,
   simplifyDebts,
   mergeSettlementPaidState,
+  redistributeAfterRemoval,
 } from "../utils/splitCalculator";
 
-const TTL_DAYS = 3;
+export const TTL_DAYS = 3;
 
 function nextExpiresAt() {
   return Timestamp.fromMillis(Date.now() + TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -87,12 +88,27 @@ export function useGroup(groupId) {
     (memberId) =>
       mutate((current) => {
         const members = (current.members ?? []).filter((m) => m.id !== memberId);
-        // Xóa luôn khoản chi liên quan tới member này khỏi paidBy/splitAmong để tránh dữ liệu mồ côi.
-        const expenses = (current.expenses ?? []).map((e) => ({
-          ...e,
-          paidBy: e.paidBy.filter((p) => p.memberId !== memberId),
-          splitAmong: e.splitAmong.filter((s) => s.memberId !== memberId),
-        }));
+
+        // Dồn phần tiền của member bị xóa cho người còn lại trong từng khoản chi, giữ đúng
+        // tổng paidBy/splitAmong == amount. Nếu họ là người trả/chia DUY NHẤT của 1 khoản chi,
+        // chặn lại thay vì âm thầm làm sai lệch số liệu — yêu cầu xóa/sửa khoản chi đó trước.
+        const blocked = [];
+        const expenses = (current.expenses ?? []).map((e) => {
+          const paidBy = redistributeAfterRemoval(e.paidBy, memberId);
+          const splitAmong = redistributeAfterRemoval(e.splitAmong, memberId);
+          if (paidBy === null || splitAmong === null) {
+            blocked.push(e.description);
+            return e;
+          }
+          return { ...e, paidBy, splitAmong };
+        });
+
+        if (blocked.length > 0) {
+          throw new Error(
+            `Không thể xóa: đây là người trả/chia duy nhất của khoản chi "${blocked.join('", "')}". Hãy xóa hoặc sửa khoản chi đó trước.`
+          );
+        }
+
         const settlements = recomputeSettlements(members, expenses, current.settlements);
         return { members, expenses, settlements };
       }),

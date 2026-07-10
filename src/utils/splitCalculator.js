@@ -10,6 +10,36 @@ export function splitEqually(amount, memberIds) {
   }));
 }
 
+// Tổng tiền của 1 danh sách entries {amount}, dùng để validate paidBy/splitAmong khớp với amount.
+export function sumAmounts(entries) {
+  return entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+}
+
+// Khi xóa 1 thành viên khỏi paidBy/splitAmong của 1 khoản chi, dồn phần tiền của họ
+// cho những người còn lại (chia đều) để giữ đúng bất biến tổng == amount.
+// Trả về null nếu removedId là entry DUY NHẤT (không còn ai để dồn tiền vào) — bên gọi
+// cần chặn thao tác này thay vì âm thầm làm sai lệch dữ liệu.
+export function redistributeAfterRemoval(entries, removedId) {
+  const removed = entries.find((e) => e.memberId === removedId);
+  const remaining = entries.filter((e) => e.memberId !== removedId);
+  if (!removed) return entries;
+  if (remaining.length === 0) return null;
+
+  const total = sumAmounts(entries);
+  const extra = splitEqually(removed.amount, remaining.map((e) => e.memberId));
+  const merged = remaining.map((e) => ({
+    memberId: e.memberId,
+    amount: e.amount + (extra.find((x) => x.memberId === e.memberId)?.amount ?? 0),
+  }));
+
+  // Bù lệch làm tròn (nếu có) vào phần tử đầu để tổng luôn khớp chính xác `total`.
+  const mergedTotal = sumAmounts(merged);
+  if (mergedTotal !== total && merged.length > 0) {
+    merged[0].amount += total - mergedTotal;
+  }
+  return merged;
+}
+
 // Tính balance (đã trả - phải chịu) cho mỗi member dựa trên toàn bộ expenses.
 export function calculateBalances(members, expenses) {
   const paid = Object.fromEntries(members.map((m) => [m.id, 0]));

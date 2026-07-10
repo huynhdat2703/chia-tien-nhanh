@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { splitEqually } from "../utils/splitCalculator";
+import { splitEqually, sumAmounts } from "../utils/splitCalculator";
 import { compressImage } from "../utils/compressImage";
 import MoneyInput from "./MoneyInput";
 
@@ -39,7 +39,7 @@ export default function ExpenseForm({ members, onAddExpense, onUploadBillImage }
     return splitEqually(amountNum, form.splitIds);
   }, [form.customSplit, form.splitIds, form.customAmounts, amountNum]);
 
-  const splitTotal = splitPreview.reduce((sum, s) => sum + s.amount, 0);
+  const splitTotal = sumAmounts(splitPreview);
 
   const payerPreview = useMemo(() => {
     if (form.multiPayer) {
@@ -48,7 +48,7 @@ export default function ExpenseForm({ members, onAddExpense, onUploadBillImage }
     return form.payerIds[0] ? [{ memberId: form.payerIds[0], amount: amountNum }] : [];
   }, [form.multiPayer, form.payerIds, form.payerAmounts, amountNum]);
 
-  const payerTotal = payerPreview.reduce((sum, p) => sum + p.amount, 0);
+  const payerTotal = sumAmounts(payerPreview);
 
   const toggleSplitMember = (id) => {
     setForm((f) => ({
