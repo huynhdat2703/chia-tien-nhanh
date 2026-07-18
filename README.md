@@ -101,3 +101,5 @@ src/
 ---
 
 Phát triển bởi Jay.
+
+[![💵 Share Bill Online - Launched on J2TEAM Launch](https://launch.j2team.dev/badge/chia-tien-nhanh-share-bill-online/dark)](https://launch.j2team.dev/products/chia-tien-nhanh-share-bill-online?utm_source=badge-launched&utm_medium=badge&utm_campaign=badge-chia-tien-nhanh-share-bill-online)
